@@ -14,14 +14,14 @@ const DAMPING = 0.8;
 
 const HOVER_RADIUS = 90;
 const HOVER_FORCE = 2.2;
-const CODE_HOVER_MULTIPLIER = 2.4;
+const CODE_HOVER_MULTIPLIER = 4.4;
 
 // Magnet tuning
-const MAGNET_FORCE = 0.2;
+const MAGNET_FORCE = 0.3;
 const ELASTIC_RADIUS = 18;
 
 // Falloff layers
-const MAGNET_CORE = 0.25;
+const MAGNET_CORE = 0.45;
 const MAGNET_MID = 0.6;
 
 const FONT_SIZE = 14;
@@ -43,7 +43,7 @@ const SPOTLIGHT_ALPHA = 255;
 const TRANSITION_FLASH_TIME = 1200;
 
 // ---------------- TIMING ----------------
-const STATE_DURATION = 10000;
+const STATE_DURATION = 7000;
 let lastSwitchTime = 0;
 
 // ---------------- MODES ----------------
@@ -174,6 +174,12 @@ function preload() {
   shapes.push(loadImage("heroShapeB.svg"));
   shapes.push(loadImage("heroShapeC.svg"));
   shapes.push(loadImage("heroShapeD.svg"));
+  shapes.push(loadImage("heroShapeE.svg"));
+  shapes.push(loadImage("heroShapeF.svg"));
+  shapes.push(loadImage("heroShapeG.svg"));
+  shapes.push(loadImage("heroShapeH.svg"));
+  shapes.push(loadImage("heroShapeI.svg"));
+  shapes.push(loadImage("heroShapeJ.svg"));
 }
 
 // ---------------- SETUP ----------------
