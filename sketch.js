@@ -219,8 +219,8 @@ function extractPoints(img) {
 // ---------------- CODE GRID ----------------
 function generateCodePoints() {
   let pts = [];
-  const marginX = 20;
-  const marginY = 30;
+  const marginX = 0;
+  const marginY = 0;
 
   const cols = floor((width - marginX * 2) / CHAR_WIDTH);
   const rows = floor((height - marginY * 2) / LINE_HEIGHT);
