@@ -1,25 +1,27 @@
-// HERO MORPH — SVG ⇄ SVG ⇄ FULL-WIDTH CODE SHAPE (STABLE + CODE WAKE)
+// HERO MORPH — SVG ⇄ SVG ⇄ FULL-WIDTH CODE SHAPE (ELASTIC MAGNET + FALLOFF)
 
 let particles = [];
 let font;
 let shapeA, shapeB;
-
-let mouseVX = 0;
-let mouseVY = 0;
 
 // ---------------- CONFIG ----------------
 const DENSITY = 5;
 const HERO_SCALE = 0.85;
 
 const ORGANIZE_FORCE = 0.03;
-const DAMPING = 0.78;
+const DAMPING = 0.8;
 
 const HOVER_RADIUS = 90;
 const HOVER_FORCE = 2.2;
-const CODE_HOVER_MULTIPLIER = 3.2;
+const CODE_HOVER_MULTIPLIER = 2.4;
 
-const WAKE_RADIUS = 140;
-const WAKE_FORCE = 0.25;
+// Magnet tuning
+const MAGNET_FORCE = 0.2;
+const ELASTIC_RADIUS = 18;
+
+// Falloff layers (percent of radius)
+const MAGNET_CORE = 0.25;
+const MAGNET_MID = 0.6;
 
 const IDLE_AMPLITUDE = 6;
 const IDLE_SPEED = 0.0004;
@@ -44,22 +46,20 @@ const MODE_CODE = 1;
 
 let mode = MODE_SHAPE;
 let targetShape = 0;
+let codeHoverMode = 0;
 
 // ---------------- CODE BLOCK ----------------
 const CODE_LINES = [
-`<!DOCTYPE html>`,
-`<html lang="en">`,
-`<head>`,
-`  <meta charset="UTF-8">`,
-`  <meta name="viewport" content="width=device-width, initial-scale=1.0">`,
-`  <title>Hero Morph Engine</title>`,
-`</head>`,
-`<body>`,
-`  <main class="hero">`,
-`    <canvas id="hero-canvas"></canvas>`,
-`  </main>`,
-`</body>`,
-`</html>`
+  `<!DOCTYPE html>`,
+  `<html lang="en">`,
+  `<head>`,
+  `  <meta charset="UTF-8">`,
+  `  <title>Hero Morph Engine</title>`,
+  `</head>`,
+  `<body>`,
+  `  <canvas id="hero"></canvas>`,
+  `</body>`,
+  `</html>`
 ];
 
 // ---------------- PRELOAD ----------------
@@ -100,10 +100,9 @@ function extractPoints(img) {
   return pts;
 }
 
-// ---------------- CODE → POINT CLOUD ----------------
+// ---------------- CODE GRID ----------------
 function generateCodePoints() {
   let pts = [];
-
   const marginX = 20;
   const marginY = 30;
 
@@ -118,11 +117,10 @@ function generateCodePoints() {
     let x = marginX;
 
     for (let c = 0; c < cols; c++) {
-      const ch = fullCode[index % fullCode.length];
       pts.push({
         x,
         y,
-        char: ch === "\n" ? " " : ch
+        char: fullCode[index % fullCode.length]
       });
       x += CHAR_WIDTH;
       index++;
@@ -160,6 +158,7 @@ function buildParticles() {
 function mousePressed() {
   if (mode === MODE_SHAPE) {
     mode = MODE_CODE;
+    codeHoverMode = 1 - codeHoverMode;
   } else {
     mode = MODE_SHAPE;
     targetShape = 1 - targetShape;
@@ -170,55 +169,72 @@ function mousePressed() {
 function draw() {
   background("#FFFFFF");
 
-  mouseVX = mouseX - pmouseX;
-  mouseVY = mouseY - pmouseY;
-
-  let time = frameCount * IDLE_SPEED;
   let accent = ACCENT_COLORS[targetShape % ACCENT_COLORS.length];
 
   for (let p of particles) {
     let target =
-      mode === MODE_CODE
-        ? p.c
-        : targetShape === 0
-        ? p.a
-        : p.b;
+      mode === MODE_CODE ? p.c : targetShape === 0 ? p.a : p.b;
 
-    let idleX = cos(time + target.x * 0.002) * IDLE_AMPLITUDE;
-    let idleY = sin(time + target.y * 0.002) * IDLE_AMPLITUDE;
+    p.vx += (target.x - p.x) * ORGANIZE_FORCE;
+    p.vy += (target.y - p.y) * ORGANIZE_FORCE;
 
-    p.vx += (target.x + idleX - p.x) * ORGANIZE_FORCE;
-    p.vy += (target.y + idleY - p.y) * ORGANIZE_FORCE;
+    let d = dist(mouseX, mouseY, p.x, p.y);
 
-    // ---------------- HOVER ----------------
-    let dm = dist(mouseX, mouseY, p.x, p.y);
-    if (dm < HOVER_RADIUS) {
-      let ang = atan2(p.y - mouseY, p.x - mouseX);
-      let strength =
-        HOVER_FORCE *
-        (mode === MODE_CODE ? CODE_HOVER_MULTIPLIER : 1);
-
-      let f = (1 - dm / HOVER_RADIUS) * strength;
-      p.vx += cos(ang) * f;
-      p.vy += sin(ang) * f;
+    // Shape mode → push only
+    if (mode === MODE_SHAPE && d < HOVER_RADIUS) {
+      let a = atan2(p.y - mouseY, p.x - mouseX);
+      let f = (1 - d / HOVER_RADIUS) * HOVER_FORCE;
+      p.vx += cos(a) * f;
+      p.vy += sin(a) * f;
     }
 
-    // ---------------- CURSOR WAKE (CODE ONLY) ----------------
-    if (mode === MODE_CODE && dm < WAKE_RADIUS) {
-      let w = (1 - dm / WAKE_RADIUS) * WAKE_FORCE;
-      p.vx += mouseVX * w;
-      p.vy += mouseVY * w;
+    // Code mode
+    if (mode === MODE_CODE && d < HOVER_RADIUS) {
+      if (codeHoverMode === 0) {
+        // Push
+        let a = atan2(p.y - mouseY, p.x - mouseX);
+        let f =
+          (1 - d / HOVER_RADIUS) *
+          HOVER_FORCE *
+          CODE_HOVER_MULTIPLIER;
+        p.vx += cos(a) * f;
+        p.vy += sin(a) * f;
+      } else {
+        // -------- MAGNET WITH FALLOFF LAYERS --------
+        let dx = mouseX - p.x;
+        let dy = mouseY - p.y;
+        let distToMouse = sqrt(dx * dx + dy * dy);
+
+        if (distToMouse > ELASTIC_RADIUS) {
+          let nd = distToMouse / HOVER_RADIUS;
+          let strength = 0;
+
+          if (nd < MAGNET_CORE) {
+            // Core
+            strength = 1;
+          } else if (nd < MAGNET_MID) {
+            // Mid
+            strength = map(nd, MAGNET_CORE, MAGNET_MID, 1, 0.35);
+          } else {
+            // Outer
+            strength = map(nd, MAGNET_MID, 1, 0.35, 0.08);
+          }
+
+          let stretch = distToMouse - ELASTIC_RADIUS;
+          let pull = stretch * MAGNET_FORCE * strength;
+
+          p.vx += (dx / distToMouse) * pull;
+          p.vy += (dy / distToMouse) * pull;
+        }
+      }
     }
 
-    // ---------------- INTEGRATE ----------------
     p.vx *= DAMPING;
     p.vy *= DAMPING;
     p.x += p.vx;
     p.y += p.vy;
 
-    let cd = dist(mouseX, mouseY, p.x, p.y);
-    let t = constrain(1 - cd / COLOR_RADIUS, 0, 1);
-
+    let t = constrain(1 - d / COLOR_RADIUS, 0, 1);
     fill(
       lerp(BASE_COLOR[0], accent[0], t),
       lerp(BASE_COLOR[1], accent[1], t),
@@ -235,4 +251,3 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   buildParticles();
 }
-
