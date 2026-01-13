@@ -1,20 +1,25 @@
-// HERO MORPH — SVG ⇄ SVG ⇄ FULL-WIDTH CODE SHAPE (STABLE + HIGH-CONTRAST CODE MODE)
+// HERO MORPH — SVG ⇄ SVG ⇄ FULL-WIDTH CODE SHAPE (STABLE + CODE WAKE)
 
 let particles = [];
 let font;
 let shapeA, shapeB;
+
+let mouseVX = 0;
+let mouseVY = 0;
 
 // ---------------- CONFIG ----------------
 const DENSITY = 5;
 const HERO_SCALE = 0.85;
 
 const ORGANIZE_FORCE = 0.03;
-const ORGANIZE_FORCE_CODE = 0.018;
 const DAMPING = 0.78;
 
 const HOVER_RADIUS = 90;
 const HOVER_FORCE = 2.2;
-const CODE_HOVER_MULTIPLIER = 3.0;
+const CODE_HOVER_MULTIPLIER = 3.2;
+
+const WAKE_RADIUS = 140;
+const WAKE_FORCE = 0.25;
 
 const IDLE_AMPLITUDE = 6;
 const IDLE_SPEED = 0.0004;
@@ -22,8 +27,6 @@ const IDLE_SPEED = 0.0004;
 const FONT_SIZE = 14;
 const LINE_HEIGHT = 24;
 const CHAR_WIDTH = 12;
-
-const VELOCITY_GLOW_MAX = 6.0;
 
 const BASE_COLOR = [38, 47, 59];
 const ACCENT_COLORS = [
@@ -45,30 +48,16 @@ let targetShape = 0;
 // ---------------- CODE BLOCK ----------------
 const CODE_LINES = [
 `<!DOCTYPE html>`,
-`<html lang="en" data-theme="light" data-app="hero-morph-engine" data-version="2.4.1">`,
+`<html lang="en">`,
 `<head>`,
 `  <meta charset="UTF-8">`,
-`  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">`,
-`  <meta name="description" content="Interactive hero system using particle-based SVG morphing, code-driven layouts, and GPU-accelerated motion pipelines.">`,
-`  <meta name="author" content="Wix Engineering Platform">`,
-`  <meta name="robots" content="index, follow">`,
-`  <meta http-equiv="X-UA-Compatible" content="IE=edge">`,
-`  <title>Hero Morph Engine — Interactive Motion System</title>`,
-`  <link rel="stylesheet" href="/styles/reset.css">`,
-`  <link rel="stylesheet" href="/styles/layout.css">`,
-`  <link rel="stylesheet" href="/styles/hero.css">`,
+`  <meta name="viewport" content="width=device-width, initial-scale=1.0">`,
+`  <title>Hero Morph Engine</title>`,
 `</head>`,
 `<body>`,
-`  <main class="main-content">`,
-`    <section class="hero hero--interactive">`,
-`      <canvas id="hero-canvas"></canvas>`,
-`    </section>`,
+`  <main class="hero">`,
+`    <canvas id="hero-canvas"></canvas>`,
 `  </main>`,
-`  <script type="module">`,
-`    import { initHero } from "/scripts/hero/core.js";`,
-`    const canvas = document.querySelector("#hero-canvas");`,
-`    initHero({ canvas, enableCodeMorph: true });`,
-`  </script>`,
 `</body>`,
 `</html>`
 ];
@@ -119,7 +108,7 @@ function generateCodePoints() {
   const marginY = 30;
 
   const cols = floor((width - marginX * 2) / CHAR_WIDTH);
-  const rows = ceil((height - marginY * 2) / LINE_HEIGHT);
+  const rows = floor((height - marginY * 2) / LINE_HEIGHT);
 
   const fullCode = CODE_LINES.join("\n");
   let index = 0;
@@ -150,12 +139,10 @@ function buildParticles() {
   const b = extractPoints(shapeB);
   const c = generateCodePoints();
 
-  const count = c.length;
-
   shuffle(a, true);
   shuffle(b, true);
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < c.length; i++) {
     particles.push({
       x: a[i % a.length].x,
       y: a[i % a.length].y,
@@ -171,8 +158,9 @@ function buildParticles() {
 
 // ---------------- INPUT ----------------
 function mousePressed() {
-  if (mode === MODE_SHAPE) mode = MODE_CODE;
-  else {
+  if (mode === MODE_SHAPE) {
+    mode = MODE_CODE;
+  } else {
     mode = MODE_SHAPE;
     targetShape = 1 - targetShape;
   }
@@ -181,6 +169,9 @@ function mousePressed() {
 // ---------------- DRAW ----------------
 function draw() {
   background("#FFFFFF");
+
+  mouseVX = mouseX - pmouseX;
+  mouseVY = mouseY - pmouseY;
 
   let time = frameCount * IDLE_SPEED;
   let accent = ACCENT_COLORS[targetShape % ACCENT_COLORS.length];
@@ -193,47 +184,48 @@ function draw() {
         ? p.a
         : p.b;
 
-    let organize =
-      mode === MODE_CODE ? ORGANIZE_FORCE_CODE : ORGANIZE_FORCE;
-
     let idleX = cos(time + target.x * 0.002) * IDLE_AMPLITUDE;
     let idleY = sin(time + target.y * 0.002) * IDLE_AMPLITUDE;
 
-    p.vx += (target.x + idleX - p.x) * organize;
-    p.vy += (target.y + idleY - p.y) * organize;
+    p.vx += (target.x + idleX - p.x) * ORGANIZE_FORCE;
+    p.vy += (target.y + idleY - p.y) * ORGANIZE_FORCE;
 
+    // ---------------- HOVER ----------------
     let dm = dist(mouseX, mouseY, p.x, p.y);
     if (dm < HOVER_RADIUS) {
       let ang = atan2(p.y - mouseY, p.x - mouseX);
       let strength =
-        mode === MODE_CODE
-          ? HOVER_FORCE * CODE_HOVER_MULTIPLIER
-          : HOVER_FORCE;
+        HOVER_FORCE *
+        (mode === MODE_CODE ? CODE_HOVER_MULTIPLIER : 1);
 
       let f = (1 - dm / HOVER_RADIUS) * strength;
       p.vx += cos(ang) * f;
       p.vy += sin(ang) * f;
     }
 
+    // ---------------- CURSOR WAKE (CODE ONLY) ----------------
+    if (mode === MODE_CODE && dm < WAKE_RADIUS) {
+      let w = (1 - dm / WAKE_RADIUS) * WAKE_FORCE;
+      p.vx += mouseVX * w;
+      p.vy += mouseVY * w;
+    }
+
+    // ---------------- INTEGRATE ----------------
     p.vx *= DAMPING;
     p.vy *= DAMPING;
     p.x += p.vx;
     p.y += p.vy;
 
-    let speed = constrain(sqrt(p.vx * p.vx + p.vy * p.vy), 0, VELOCITY_GLOW_MAX);
-    let glow = speed / VELOCITY_GLOW_MAX;
-
     let cd = dist(mouseX, mouseY, p.x, p.y);
     let t = constrain(1 - cd / COLOR_RADIUS, 0, 1);
 
     fill(
-      lerp(BASE_COLOR[0], accent[0], max(t, glow)),
-      lerp(BASE_COLOR[1], accent[1], max(t, glow)),
-      lerp(BASE_COLOR[2], accent[2], max(t, glow)),
-      lerp(BASE_ALPHA, SPOTLIGHT_ALPHA, max(t, glow))
+      lerp(BASE_COLOR[0], accent[0], t),
+      lerp(BASE_COLOR[1], accent[1], t),
+      lerp(BASE_COLOR[2], accent[2], t),
+      lerp(BASE_ALPHA, SPOTLIGHT_ALPHA, t)
     );
 
-    textSize(FONT_SIZE + glow * 2.5);
     text(p.char, p.x, p.y);
   }
 }
@@ -243,3 +235,4 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   buildParticles();
 }
+
