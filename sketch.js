@@ -28,10 +28,10 @@ const FONT_SIZE = 14;
 const LINE_HEIGHT = 24;
 const CHAR_WIDTH = 12;
 
-const BASE_COLOR = [38, 47, 59];
+const BASE_COLOR = [235, 235, 235];
 const ACCENT_COLORS = [
-  [22, 106, 234],
   [205, 196, 255],
+  [255, 128, 68],
   [228, 255, 152]
 ];
 
@@ -286,7 +286,8 @@ function updateStateMachine() {
 
 // ---------------- DRAW ----------------
 function draw() {
-  background("#FFFFFF");
+  clear();
+  // background("#FFFFFF");
   updateStateMachine();
 
   for (let p of particles) {
