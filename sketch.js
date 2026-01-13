@@ -1,4 +1,4 @@
-// HERO MORPH — SVG ⇄ SVG ⇄ FULL-WIDTH CODE SHAPE (STABLE)
+// HERO MORPH — SVG ⇄ SVG ⇄ FULL-WIDTH CODE SHAPE (STABLE + HIGH-CONTRAST CODE MODE)
 
 let particles = [];
 let font;
@@ -9,10 +9,12 @@ const DENSITY = 5;
 const HERO_SCALE = 0.85;
 
 const ORGANIZE_FORCE = 0.03;
+const ORGANIZE_FORCE_CODE = 0.018;
 const DAMPING = 0.78;
 
 const HOVER_RADIUS = 90;
 const HOVER_FORCE = 2.2;
+const CODE_HOVER_MULTIPLIER = 3.0;
 
 const IDLE_AMPLITUDE = 6;
 const IDLE_SPEED = 0.0004;
@@ -20,6 +22,8 @@ const IDLE_SPEED = 0.0004;
 const FONT_SIZE = 14;
 const LINE_HEIGHT = 24;
 const CHAR_WIDTH = 12;
+
+const VELOCITY_GLOW_MAX = 6.0;
 
 const BASE_COLOR = [38, 47, 59];
 const ACCENT_COLORS = [
@@ -50,104 +54,24 @@ const CODE_LINES = [
 `  <meta name="robots" content="index, follow">`,
 `  <meta http-equiv="X-UA-Compatible" content="IE=edge">`,
 `  <title>Hero Morph Engine — Interactive Motion System</title>`,
-`  <link rel="preconnect" href="https://fonts.googleapis.com">`,
-`  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
 `  <link rel="stylesheet" href="/styles/reset.css">`,
-`  <link rel="stylesheet" href="/styles/tokens.css">`,
 `  <link rel="stylesheet" href="/styles/layout.css">`,
-`  <link rel="stylesheet" href="/styles/typography.css">`,
 `  <link rel="stylesheet" href="/styles/hero.css">`,
-`  <link rel="stylesheet" href="/styles/components/button.css">`,
-`  <link rel="stylesheet" href="/styles/components/navigation.css">`,
 `</head>`,
-`<body class="page page--home page--motion-enabled page--theme-light" data-scroll="locked">`,
-`  <header class="site-header site-header--transparent site-header--sticky" data-state="idle">`,
-`    <div class="site-header__inner site-header__inner--wide">`,
-`      <a href="/" class="brand brand--logo brand--animated" aria-label="Wix Home">WIX</a>`,
-`      <nav class="navigation navigation--primary navigation--horizontal" role="navigation">`,
-`        <ul class="navigation__list">`,
-`          <li class="navigation__item"><a href="#platform">Platform</a></li>`,
-`          <li class="navigation__item"><a href="#solutions">Solutions</a></li>`,
-`          <li class="navigation__item"><a href="#developers">Developers</a></li>`,
-`          <li class="navigation__item"><a href="#pricing">Pricing</a></li>`,
-`          <li class="navigation__item"><a href="#enterprise">Enterprise</a></li>`,
-`        </ul>`,
-`      </nav>`,
-`    </div>`,
-`  </header>`,
-`  <main class="main-content main-content--fluid main-content--scroll-locked">`,
-`    <section class="hero hero--fullscreen hero--interactive hero--particle-driven" data-state="idle" data-morph-target="shapeA">`,
-`      <canvas id="hero-canvas" width="1920" height="1080" data-density="5" data-hover-radius="90"></canvas>`,
-`      <div class="hero-overlay hero-overlay--centered hero-overlay--wide">`,
-`        <h1 class="hero-title hero-title--xl hero-title--bold">Create without limits using interactive motion systems</h1>`,
-`        <p class="hero-subtitle hero-subtitle--lg">Design, build, and scale immersive digital experiences with modular tooling and performance-first architecture.</p>`,
-`        <div class="hero-actions hero-actions--inline">`,
-`          <button class="button button--primary button--lg button--rounded" data-action="start">Get Started</button>`,
-`          <button class="button button--secondary button--lg button--ghost" data-action="docs">View Documentation</button>`,
-`        </div>`,
-`      </div>`,
-`    </section>`,
-`    <section class="features features--grid features--three-up features--spacious">`,
-`      <article class="feature-card feature-card--interactive" data-index="0">`,
-`        <h2 class="feature-card__title">Design Freedom</h2>`,
-`        <p class="feature-card__description">Composable layouts, responsive typography, motion primitives, and scalable design tokens.</p>`,
-`      </article>`,
-`      <article class="feature-card feature-card--interactive" data-index="1">`,
-`        <h2 class="feature-card__title">Developer Control</h2>`,
-`        <p class="feature-card__description">APIs, webhooks, CLI tooling, headless CMS integration, and custom render pipelines.</p>`,
-`      </article>`,
-`      <article class="feature-card feature-card--interactive" data-index="2">`,
-`        <h2 class="feature-card__title">Performance at Scale</h2>`,
-`        <p class="feature-card__description">GPU-accelerated animation, adaptive rendering strategies, and edge-first delivery.</p>`,
-`      </article>`,
-`    </section>`,
-`    <section class="developer-section developer-section--dark">`,
-`      <pre class="code-sample"><code>npm install @wix/hero-morph-engine --save</code></pre>`,
-`      <pre class="code-sample"><code>import { createHeroEngine } from "@wix/hero-morph-engine";</code></pre>`,
+`<body>`,
+`  <main class="main-content">`,
+`    <section class="hero hero--interactive">`,
+`      <canvas id="hero-canvas"></canvas>`,
 `    </section>`,
 `  </main>`,
-`  <footer class="site-footer site-footer--dark site-footer--wide">`,
-`    <div class="site-footer__inner">`,
-`      <span class="site-footer__copy">© 2026 Wix.com. All rights reserved.</span>`,
-`      <nav class="site-footer__nav">`,
-`        <a href="/privacy">Privacy</a>`,
-`        <a href="/terms">Terms</a>`,
-`        <a href="/accessibility">Accessibility</a>`,
-`        <a href="/status">System Status</a>`,
-`      </nav>`,
-`    </div>`,
-`  </footer>`,
 `  <script type="module">`,
-`    import { initHero, updateHero, destroyHero } from "/scripts/hero/core.js";`,
-`    import { prefersReducedMotion, throttle } from "/scripts/utils/environment.js";`,
-`    const canvas = document.getElementById("hero-canvas");`,
-`    const config = {`,
-`      density: 5,`,
-`      idleAmplitude: 6,`,
-`      hoverRadius: 90,`,
-`      morphSpeed: 0.03,`,
-`      enableCodeMorph: true,`,
-`      enableIdleMotion: true`,
-`    };`,
-`    function bootstrapHero() {`,
-`      if (!canvas || prefersReducedMotion()) return;`,
-`      initHero({ canvas, ...config });`,
-`    }`,
-`    const handleResize = throttle(() => {`,
-`      updateHero({ canvas, resize: true });`,
-`    }, 100);`,
-`    function cleanupHero() {`,
-`      destroyHero({ canvas, cleanup: true });`,
-`    }`,
-`    window.addEventListener("DOMContentLoaded", bootstrapHero);`,
-`    window.addEventListener("resize", handleResize);`,
-`    window.addEventListener("beforeunload", cleanupHero);`,
+`    import { initHero } from "/scripts/hero/core.js";`,
+`    const canvas = document.querySelector("#hero-canvas");`,
+`    initHero({ canvas, enableCodeMorph: true });`,
 `  </script>`,
 `</body>`,
 `</html>`
 ];
-
-
 
 // ---------------- PRELOAD ----------------
 function preload() {
@@ -187,7 +111,7 @@ function extractPoints(img) {
   return pts;
 }
 
-// ---------------- CODE → POINT CLOUD (FULL SCREEN, FIXED) ----------------
+// ---------------- CODE → POINT CLOUD ----------------
 function generateCodePoints() {
   let pts = [];
 
@@ -195,7 +119,7 @@ function generateCodePoints() {
   const marginY = 30;
 
   const cols = floor((width - marginX * 2) / CHAR_WIDTH);
-  const rows = floor((height - marginY * 2) / LINE_HEIGHT);
+  const rows = ceil((height - marginY * 2) / LINE_HEIGHT);
 
   const fullCode = CODE_LINES.join("\n");
   let index = 0;
@@ -226,7 +150,7 @@ function buildParticles() {
   const b = extractPoints(shapeB);
   const c = generateCodePoints();
 
-  const count = c.length; // IMPORTANT: always fill screen
+  const count = c.length;
 
   shuffle(a, true);
   shuffle(b, true);
@@ -269,16 +193,24 @@ function draw() {
         ? p.a
         : p.b;
 
+    let organize =
+      mode === MODE_CODE ? ORGANIZE_FORCE_CODE : ORGANIZE_FORCE;
+
     let idleX = cos(time + target.x * 0.002) * IDLE_AMPLITUDE;
     let idleY = sin(time + target.y * 0.002) * IDLE_AMPLITUDE;
 
-    p.vx += (target.x + idleX - p.x) * ORGANIZE_FORCE;
-    p.vy += (target.y + idleY - p.y) * ORGANIZE_FORCE;
+    p.vx += (target.x + idleX - p.x) * organize;
+    p.vy += (target.y + idleY - p.y) * organize;
 
     let dm = dist(mouseX, mouseY, p.x, p.y);
     if (dm < HOVER_RADIUS) {
       let ang = atan2(p.y - mouseY, p.x - mouseX);
-      let f = (1 - dm / HOVER_RADIUS) * HOVER_FORCE;
+      let strength =
+        mode === MODE_CODE
+          ? HOVER_FORCE * CODE_HOVER_MULTIPLIER
+          : HOVER_FORCE;
+
+      let f = (1 - dm / HOVER_RADIUS) * strength;
       p.vx += cos(ang) * f;
       p.vy += sin(ang) * f;
     }
@@ -288,16 +220,20 @@ function draw() {
     p.x += p.vx;
     p.y += p.vy;
 
+    let speed = constrain(sqrt(p.vx * p.vx + p.vy * p.vy), 0, VELOCITY_GLOW_MAX);
+    let glow = speed / VELOCITY_GLOW_MAX;
+
     let cd = dist(mouseX, mouseY, p.x, p.y);
     let t = constrain(1 - cd / COLOR_RADIUS, 0, 1);
 
     fill(
-      lerp(BASE_COLOR[0], accent[0], t),
-      lerp(BASE_COLOR[1], accent[1], t),
-      lerp(BASE_COLOR[2], accent[2], t),
-      lerp(BASE_ALPHA, SPOTLIGHT_ALPHA, t)
+      lerp(BASE_COLOR[0], accent[0], max(t, glow)),
+      lerp(BASE_COLOR[1], accent[1], max(t, glow)),
+      lerp(BASE_COLOR[2], accent[2], max(t, glow)),
+      lerp(BASE_ALPHA, SPOTLIGHT_ALPHA, max(t, glow))
     );
 
+    textSize(FONT_SIZE + glow * 2.5);
     text(p.char, p.x, p.y);
   }
 }
